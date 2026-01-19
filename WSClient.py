@@ -19,8 +19,20 @@ class WSClient:
 
     def on_message(self, ws, message):
         received_msg = Message.from_json(message)
+
+        # Répondre au ping du serveur
+        if received_msg.message_type == MessageType.SYS_MESSAGE and received_msg.value == "ping":
+            pong_msg = Message(MessageType.SYS_MESSAGE, emitter=self.username, receiver="", value="pong")
+            ws.send(pong_msg.to_json())
+            return
+
         print(f"\n[{received_msg.emitter}] {received_msg.value}")
         print(f"[{self.username}] > ", end="", flush=True)
+
+        # Accusé de réception pour les messages RECEPTION
+        if received_msg.message_type == MessageType.RECEPTION:
+            ack_msg = Message(MessageType.SYS_MESSAGE, emitter=self.username, receiver="", value="MESSAGE OK")
+            ws.send(ack_msg.to_json())
 
     def on_error(self, ws, error):
         print(f"\n[error] {error}")
@@ -40,12 +52,14 @@ class WSClient:
 
     def input_loop(self):
         print(f"Chat démarré. Tapez 'dest:message' pour envoyer (ex: SERVER:bonjour)")
-        print(f"Tapez 'quit' pour quitter.\n")
+        print(f"Tapez 'disconnect' pour quitter.\n")
         while self.connected:
             try:
                 print(f"[{self.username}] > ", end="", flush=True)
                 user_input = input()
-                if user_input.lower() == "quit":
+                if user_input.lower() == "disconnect":
+                    disconnect_msg = Message(MessageType.SYS_MESSAGE, emitter=self.username, receiver="", value="Disconnect")
+                    self.ws.send(disconnect_msg.to_json())
                     self.ws.close()
                     break
                 if ":" in user_input:
@@ -74,5 +88,5 @@ class WSClient:
 if __name__ == "__main__":
     import sys
     username = sys.argv[1] if len(sys.argv) > 1 else "Client"
-    client = WSClient.dev(username)
+    client = WSClient.prod(username)
     client.connect()

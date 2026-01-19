@@ -2,9 +2,11 @@ import json
 
 
 class MessageType:
-    DECLARATION = "declaration"
-    ENVOI = "envoi"
-    RECEPTION = "reception"
+    DECLARATION = "DECLARATION"
+    ENVOI = "ENVOI"
+    WARNING = "WARNING"
+    SYS_MESSAGE = "SYS_MESSAGE"
+    RECEPTION = "RECEPTION"
 
 class Message:
     def __init__(self, message_type: MessageType, value, emitter, receiver=None):
@@ -35,6 +37,7 @@ class Message:
                 'value': self.value
             }
         }
+
         return json.dumps(data)
 
 message = Message(MessageType.DECLARATION, emitter="System", receiver="All", value="This is a test message")

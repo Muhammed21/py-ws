@@ -54,12 +54,12 @@ class WSServer:
 
     def input_loop(self):
         print("\nChat serveur démarré. Tapez 'dest:message' pour envoyer (ex: Client:bonjour)")
-        print("Tapez 'list' pour voir les clients connectés, 'quit' pour quitter.\n")
+        print("Tapez 'list' pour voir les clients connectés, 'disconnect' pour quitter.\n")
         while self.running:
             try:
                 print("[SERVER] > ", end="", flush=True)
                 user_input = input()
-                if user_input.lower() == "quit":
+                if user_input.lower() == "disconnect":
                     self.running = False
                     self.server.shutdown_gracefully()
                     break
@@ -105,5 +105,5 @@ class WSServer:
         return WSServer(Context.prod())
 
 if __name__ == "__main__":
-    ws_server = WSServer.dev()
+    ws_server = WSServer.prod()
     ws_server.start()
