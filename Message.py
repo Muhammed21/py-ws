@@ -7,9 +7,9 @@ class MessageType:
     RECEPTION = "reception"
 
 class Message:
-    def __init__(self, message_type: MessageType, content, emitter, receiver=None):
+    def __init__(self, message_type: MessageType, value, emitter, receiver=None):
         self.message_type = message_type
-        self.content = content
+        self.value = value
         self.emitter = emitter
         self.receiver = receiver
 
@@ -23,8 +23,8 @@ class Message:
         message_type = data['message_type']
         emitter = data['data']['emitter']
         receiver = data['data'].get('receiver', None)
-        content = data['data']['content']
-        return Message(message_type, content, emitter, receiver)
+        value = data['data']['value']
+        return Message(message_type, value, emitter, receiver)
 
     def to_json(self):
         data = {
@@ -32,10 +32,10 @@ class Message:
             'data': {
                 'emitter': self.emitter,
                 'receiver': self.receiver,
-                'content': self.content
+                'value': self.value
             }
         }
         return json.dumps(data)
 
-message = Message(MessageType.DECLARATION, emitter="System", receiver="All", content="This is a test message")
+message = Message(MessageType.DECLARATION, emitter="System", receiver="All", value="This is a test message")
 messageRebuild = Message.from_json(message.to_json())

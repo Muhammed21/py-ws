@@ -19,7 +19,8 @@ class WSServer:
 
     def on_new_client(self, client, server):
         print(f"\n[+] Client connecté: id={client['id']} addr={client['address']}")
-        server.send_message(client, "Bienvenue !")
+        welcome_msg = Message(MessageType.RECEPTION, emitter="SERVER", receiver="", value="Bienvenue !")
+        server.send_message(client, welcome_msg.to_json())
         print("[SERVER] > ", end="", flush=True)
 
     def on_client_left(self, client, server):
@@ -34,18 +35,21 @@ class WSServer:
         print(f"\n[message reçu] {message}")
         received_msg = Message.from_json(message)
         if received_msg.message_type == MessageType.DECLARATION:
-            server.send_message(client, f"Déclaration reçue de {received_msg.emitter}")
+            response = Message(MessageType.RECEPTION, emitter="SERVER", receiver=received_msg.emitter, value=f"Déclaration reçue de {received_msg.emitter}")
+            server.send_message(client, response.to_json())
             self.clients[received_msg.emitter] = client
             print(f"[info] Client '{received_msg.emitter}' enregistré")
         elif received_msg.message_type == MessageType.ENVOI:
             if received_msg.receiver == "SERVER":
-                print(f"[{received_msg.emitter}] {received_msg.content}")
+                print(f"[{received_msg.emitter}] {received_msg.value}")
             else:
                 receiver_client = self.clients.get(received_msg.receiver, None)
                 if receiver_client:
-                    server.send_message(receiver_client, f"Message de {received_msg.emitter}: {received_msg.content}")
+                    forward_msg = Message(MessageType.RECEPTION, emitter=received_msg.emitter, receiver=received_msg.receiver, value=received_msg.value)
+                    server.send_message(receiver_client, forward_msg.to_json())
                 else:
-                    server.send_message(client, f"Erreur: destinataire {received_msg.receiver} non trouvé.")
+                    error_msg = Message(MessageType.RECEPTION, emitter="SERVER", receiver=received_msg.emitter, value=f"Erreur: destinataire {received_msg.receiver} non trouvé.")
+                    server.send_message(client, error_msg.to_json())
         print("[SERVER] > ", end="", flush=True)
 
     def input_loop(self):
@@ -62,18 +66,20 @@ class WSServer:
                 elif user_input.lower() == "list":
                     print(f"Clients connectés: {list(self.clients.keys())}")
                 elif ":" in user_input:
-                    dest, content = user_input.split(":", 1)
+                    dest, value = user_input.split(":", 1)
                     dest = dest.strip()
-                    content = content.strip()
+                    value = value.strip()
                     if dest.lower() == "all":
                         for name, client in self.clients.items():
-                            self.server.send_message(client, f"[SERVER] {content}")
-                        print(f"[envoyé à tous] {content}")
+                            msg = Message(MessageType.RECEPTION, emitter="SERVER", receiver=name, value=value)
+                            self.server.send_message(client, msg.to_json())
+                        print(f"[envoyé à tous] {value}")
                     else:
                         receiver_client = self.clients.get(dest, None)
                         if receiver_client:
-                            self.server.send_message(receiver_client, f"[SERVER] {content}")
-                            print(f"[envoyé à {dest}] {content}")
+                            msg = Message(MessageType.RECEPTION, emitter="SERVER", receiver=dest, value=value)
+                            self.server.send_message(receiver_client, msg.to_json())
+                            print(f"[envoyé à {dest}] {value}")
                         else:
                             print(f"[erreur] Client '{dest}' non trouvé")
                 else:
@@ -99,5 +105,5 @@ class WSServer:
         return WSServer(Context.prod())
 
 if __name__ == "__main__":
-    ws_server = WSServer.prod()
+    ws_server = WSServer.dev()
     ws_server.start()

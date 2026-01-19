@@ -18,7 +18,8 @@ class WSClient:
         )
 
     def on_message(self, ws, message):
-        print(f"\n[server] {message}")
+        received_msg = Message.from_json(message)
+        print(f"\n[{received_msg.emitter}] {received_msg.value}")
         print(f"[{self.username}] > ", end="", flush=True)
 
     def on_error(self, ws, error):
@@ -31,7 +32,7 @@ class WSClient:
     def on_open(self, ws):
         print("[open] connecté")
         self.connected = True
-        message = Message(MessageType.DECLARATION, emitter=self.username, receiver="", content="")
+        message = Message(MessageType.DECLARATION, emitter=self.username, receiver="", value="")
         ws.send(message.to_json())
 
         input_thread = threading.Thread(target=self.input_loop, daemon=True)
@@ -58,8 +59,8 @@ class WSClient:
     def connect(self):
         self.ws.run_forever()
 
-    def send(self, content, dest):
-        message = Message(MessageType.ENVOI, emitter=self.username, receiver=dest, content=content)
+    def send(self, value, dest):
+        message = Message(MessageType.ENVOI, emitter=self.username, receiver=dest, value=value)
         self.ws.send(message.to_json())
 
     @staticmethod
@@ -73,5 +74,5 @@ class WSClient:
 if __name__ == "__main__":
     import sys
     username = sys.argv[1] if len(sys.argv) > 1 else "Client"
-    client = WSClient.prod(username)
+    client = WSClient.dev(username)
     client.connect()
