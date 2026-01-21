@@ -1,8 +1,31 @@
 {
-  "message_type": "#MESSAGE_TYPE#",
+  "properties": {
+    "message_type": {
+      "ENVOIE": [
+      "IMAGE", "AUDIO", "TEXT"
+      ],
+      "RECEPTION": [
+        "IMAGE", "AUDIO", "TEXT"
+      ],
+      "enum": [
+        "DECLARATION",
+        "SYS_SYSTEM",
+        "WARNING"
+      ]
+    }
+  },
   "data": {
-    "emitter": "#EMITTER#",
-    "receiver": "#RECEIVER#",
-    "value": "#VALUE#"
+    "type": "object",
+    "properties": {
+      "emitter": {
+        "type": "string"
+      },
+      "receiver": {
+        "type": "string"
+      },
+      "value": {
+        "type": "string"
+      }
+    }
   }
 }

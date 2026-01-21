@@ -1,14 +1,20 @@
 import websocket
 import threading
+import base64
 
 from Context import Context
 from Message import Message, MessageType
 
 
 class WSClient:
-    def __init__(self, ctx, username="Client"):
+    def __init__(self, ctx, username="Client", on_connect_callback=None, on_message_callback=None, on_users_list_callback=None):
         self.username = username
         self.connected = False
+        self.on_connect_callback = on_connect_callback
+        self.on_message_callback = on_message_callback
+        self.on_users_list_callback = on_users_list_callback
+        self.known_users = set()
+        self.connected_users = []
         self.ws = websocket.WebSocketApp(
             ctx.url(),
             on_open=self.on_open,
@@ -26,11 +32,30 @@ class WSClient:
             ws.send(pong_msg.to_json())
             return
 
-        print(f"\n[{received_msg.emitter}] {received_msg.value}")
-        print(f"[{self.username}] > ", end="", flush=True)
+        # Gérer la liste des utilisateurs connectés
+        if received_msg.message_type == MessageType.RECEPTION.CLIENT_LIST:
+            self.connected_users = received_msg.value
+            if self.on_users_list_callback:
+                self.on_users_list_callback(self.connected_users)
+            else:
+                print(f"\n[Utilisateurs connectés] {self.connected_users}")
+                print(f"[{self.username}] > ", end="", flush=True)
+            return
+
+        # Ajouter l'émetteur aux utilisateurs connus
+        if received_msg.emitter and received_msg.emitter != "SERVER":
+            self.known_users.add(received_msg.emitter)
+
+        # Callback pour l'UI
+        if self.on_message_callback:
+            self.on_message_callback(received_msg)
+        else:
+            # Affichage console par défaut
+            print(f"\n[{received_msg.emitter}] {received_msg.value}")
+            print(f"[{self.username}] > ", end="", flush=True)
 
         # Accusé de réception pour les messages RECEPTION
-        if received_msg.message_type == MessageType.RECEPTION:
+        if received_msg.message_type in [MessageType.RECEPTION.TEXT, MessageType.RECEPTION.IMAGE, MessageType.RECEPTION.AUDIO]:
             ack_msg = Message(MessageType.SYS_MESSAGE, emitter=self.username, receiver="", value="MESSAGE OK")
             ws.send(ack_msg.to_json())
 
@@ -47,11 +72,16 @@ class WSClient:
         message = Message(MessageType.DECLARATION, emitter=self.username, receiver="", value="")
         ws.send(message.to_json())
 
-        input_thread = threading.Thread(target=self.input_loop, daemon=True)
-        input_thread.start()
+        if self.on_connect_callback:
+            self.on_connect_callback()
+        else:
+            input_thread = threading.Thread(target=self.input_loop, daemon=True)
+            input_thread.start()
 
     def input_loop(self):
         print(f"Chat démarré. Tapez 'dest:message' pour envoyer (ex: SERVER:bonjour)")
+        print(f"Tapez 'img:dest:chemin' pour envoyer une image (ex: img:Client2:/path/image.png)")
+        print(f"Tapez 'audio:dest:chemin' pour envoyer un audio (ex: audio:Client2:/path/audio.mp3)")
         print(f"Tapez 'disconnect' pour quitter.\n")
         while self.connected:
             try:
@@ -62,6 +92,33 @@ class WSClient:
                     self.ws.send(disconnect_msg.to_json())
                     self.ws.close()
                     break
+                if user_input.lower().startswith("img:"):
+                    parts = user_input[4:].split(":", 1)
+                    if len(parts) == 2:
+                        dest, filepath = parts[0].strip(), parts[1].strip()
+                        self.send_image(filepath, dest)
+                        print(f"Image envoyée à {dest}")
+                    else:
+                        print("Format: img:dest:chemin")
+                    continue
+                if user_input.lower().startswith("audio:"):
+                    parts = user_input[6:].split(":", 1)
+                    if len(parts) == 2:
+                        dest, filepath = parts[0].strip(), parts[1].strip()
+                        self.send_audio(filepath, dest)
+                        print(f"Audio envoyé à {dest}")
+                    else:
+                        print("Format: audio:dest:chemin")
+                    continue
+                if user_input.lower().startswith("video:"):
+                    parts = user_input[6:].split(":", 1)
+                    if len(parts) == 2:
+                        dest, filepath = parts[0].strip(), parts[1].strip()
+                        self.send_video(filepath, dest)
+                        print(f"Vidéo envoyée à {dest}")
+                    else:
+                        print("Format: video:dest:chemin")
+                    continue
                 if ":" in user_input:
                     dest, content = user_input.split(":", 1)
                     self.send(content.strip(), dest.strip())
@@ -74,7 +131,28 @@ class WSClient:
         self.ws.run_forever()
 
     def send(self, value, dest):
-        message = Message(MessageType.ENVOI, emitter=self.username, receiver=dest, value=value)
+        message = Message(MessageType.ENVOI.TEXT, emitter=self.username, receiver=dest, value=value)
+        self.ws.send(message.to_json())
+
+    def send_image(self, filepath, dest):
+        with open(filepath, "rb") as f:
+            img_base64 = base64.b64encode(f.read()).decode("utf-8")
+        value = f"IMG:{img_base64}"
+        message = Message(MessageType.ENVOI.IMAGE, emitter=self.username, receiver=dest, value=value)
+        self.ws.send(message.to_json())
+
+    def send_video(self, filepath, dest):
+        with open(filepath, "rb") as f:
+            img_base64 = base64.b64encode(f.read()).decode("utf-8")
+        value = f"IMG:{img_base64}"
+        message = Message(MessageType.ENVOI.VIDEO, emitter=self.username, receiver=dest, value=value)
+        self.ws.send(message.to_json())
+
+    def send_audio(self, filepath, dest):
+        with open(filepath, "rb") as f:
+            audio_base64 = base64.b64encode(f.read()).decode("utf-8")
+        value = f"AUDIO:{audio_base64}"
+        message = Message(MessageType.ENVOI.AUDIO, emitter=self.username, receiver=dest, value=value)
         self.ws.send(message.to_json())
 
     @staticmethod

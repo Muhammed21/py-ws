@@ -1,12 +1,32 @@
 import json
 
+class ENVOI_TYPE:
+    TEXT = "ENVOI_TEXT"
+    IMAGE = "ENVOI_IMAGE"
+    AUDIO = "ENVOI_AUDIO"
+    VIDEO = "ENVOI_VIDEO"
+    CLIENT_LIST = "ENVOI_CLIENT_LIST"
+
+class RECEPTION_TYPE:
+    TEXT = "RECEPTION_TEXT"
+    IMAGE = "RECEPTION_IMAGE"
+    AUDIO = "RECEPTION_AUDIO"
+    VIDEO = "RECEPTION_VIDEO"
+    CLIENT_LIST = "RECEPTION_CLIENT_LIST"
+
+class ADMIN_TYPE:
+    ROUTING_LOG = "ADMIN_ROUTING_LOG"
+    CLIENT_CONNECTED = "ADMIN_CLIENT_CONNECTED"
+    CLIENT_DISCONNECTED = "ADMIN_CLIENT_DISCONNECTED"
+    CLIENT_LIST_FULL = "ADMIN_CLIENT_LIST_FULL"
 
 class MessageType:
     DECLARATION = "DECLARATION"
-    ENVOI = "ENVOI"
+    ENVOI = ENVOI_TYPE
+    RECEPTION = RECEPTION_TYPE
     WARNING = "WARNING"
     SYS_MESSAGE = "SYS_MESSAGE"
-    RECEPTION = "RECEPTION"
+    ADMIN = ADMIN_TYPE
 
 class Message:
     def __init__(self, message_type: MessageType, value, emitter, receiver=None):
@@ -39,6 +59,3 @@ class Message:
         }
 
         return json.dumps(data)
-
-message = Message(MessageType.DECLARATION, emitter="System", receiver="All", value="This is a test message")
-messageRebuild = Message.from_json(message.to_json())
