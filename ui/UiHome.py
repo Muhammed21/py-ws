@@ -2,6 +2,7 @@ import sys
 import base64
 import tempfile
 import os
+import json
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                              QLabel, QLineEdit, QComboBox, QPushButton, QTextEdit, QFileDialog, QScrollArea)
 from PyQt5.QtCore import pyqtSignal, QObject, Qt, QUrl
@@ -9,8 +10,29 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtMultimediaWidgets import QVideoWidget
 
-sys.path.append('..')
-from Message import MessageType
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(ROOT_DIR)
+
+from gemma.function_gemma_llamacpp import run_chat
+from Message import Message, MessageType
+from gemma.message import Message as FormattedMessage, SensorId
+from PyQt5.QtCore import QThread, pyqtSignal
+import threading
+
+class LLMWorker(QThread):
+    response_ready = pyqtSignal(str)
+
+    def __init__(self, prompt):
+        super().__init__()
+        self.prompt = prompt
+
+    def run(self):
+        try:
+            result = run_chat(self.prompt)
+            self.response_ready.emit(result)
+        except Exception as e:
+            self.response_ready.emit(f"Erreur LLM: {e}")
+
 
 
 def load_stylesheet():
@@ -160,10 +182,54 @@ class UiHome(QWidget):
         message = self.message_input.text().strip()
         dest = self.dest_combo.currentText().strip()
 
-        if message and dest:
+        if not message:
+            return
+
+        # 🔥 MODE LLM
+        if message.startswith("@"):
+            prompt = message[1:].strip()
+            self.messages_area.append("[Gemma] réflexion...")
+
+            self.llm_worker = LLMWorker(prompt)
+            self.llm_worker.response_ready.connect(self.on_llm_response)
+            self.llm_worker.finished.connect(self.llm_worker.deleteLater)
+            self.llm_worker.start()
+
+            self.message_input.clear()
+            return
+
+        # Message normal
+        if dest and self.client:
             self.client.send(message, dest)
             self.messages_area.append(f"[Moi -> {dest}] {message}")
             self.message_input.clear()
+
+    def on_llm_response(self, response):
+        sensor_id = None
+        cleaned_response = response
+
+        try:
+            data = json.loads(response)
+            sensor_id = data.get("sensor_id")
+
+
+            if sensor_id:
+                data.pop("sensor_id", None)
+                cleaned_response = json.dumps(data, ensure_ascii=False)
+        except json.JSONDecodeError:
+            pass
+
+        # Afficher la réponse sans sensor_id
+        self.messages_area.append(f"[Gemma] {cleaned_response}")
+
+        # Envoi automatique au serveur si connecté
+        if self.client:
+            if sensor_id:
+                # Envoyer le JSON SANS sensor_id dans value, mais avec sensor_id dans le paramètre
+                self.client.send_sensor(cleaned_response, sensor_id=sensor_id)
+            else:
+                self.client.send_sensor(cleaned_response)
+
 
     def emit_message_signal(self, message):
         self.signal_emitter.message_received.emit(message)

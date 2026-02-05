@@ -6,7 +6,7 @@ from PyQt5.QtCore import pyqtSignal, QObject
 
 from WSClient import WSClient
 from Context import Context
-from UiHome import UiHome
+from .UiHome import UiHome
 
 
 def load_stylesheet():

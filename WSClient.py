@@ -134,6 +134,10 @@ class WSClient:
         message = Message(MessageType.ENVOI.TEXT, emitter=self.username, receiver=dest, value=value)
         self.ws.send(message.to_json())
 
+    def send_sensor(self, value, dest="ALL", sensor_id=None):
+        message = Message.sensor(emitter=self.username,sensor_id=sensor_id,value=value, receiver=dest)
+        self.ws.send(message.to_json())
+
     def send_image(self, filepath, dest):
         with open(filepath, "rb") as f:
             img_base64 = base64.b64encode(f.read()).decode("utf-8")
