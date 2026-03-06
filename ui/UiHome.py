@@ -186,17 +186,17 @@ class UiHome(QWidget):
             return
 
         # 🔥 MODE LLM
-        if message.startswith("@"):
-            prompt = message[1:].strip()
-            self.messages_area.append("[Gemma] réflexion...")
-
-            self.llm_worker = LLMWorker(prompt)
-            self.llm_worker.response_ready.connect(self.on_llm_response)
-            self.llm_worker.finished.connect(self.llm_worker.deleteLater)
-            self.llm_worker.start()
-
-            self.message_input.clear()
-            return
+        # if message.startswith("@"):
+        #     prompt = message[1:].strip()
+        #     self.messages_area.append("[Gemma] réflexion...")
+        #
+        #     self.llm_worker = LLMWorker(prompt)
+        #     self.llm_worker.response_ready.connect(self.on_llm_response)
+        #     self.llm_worker.finished.connect(self.llm_worker.deleteLater)
+        #     self.llm_worker.start()
+        #
+        #     self.message_input.clear()
+        #     return
 
         # Message normal
         if dest and self.client:
