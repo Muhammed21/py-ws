@@ -50,7 +50,7 @@
             box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
 
-        .panel h3 {
+        .panel h3, .panel h4 {
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -75,7 +75,7 @@
             align-items: center;
             gap: 10px;
         }
-        .status-dot {
+        .status-dot, .system-status-dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
@@ -93,6 +93,44 @@
             50% { opacity: 0.5; }
         }
         .status-text { font-size: 13px; }
+
+        /* Missing Users list */
+        #missing-users-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        .missing-user-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: rgba(0, 170, 255, 0.1);
+            border: 1px solid rgba(0, 170, 255, 0.2);
+            border-radius: 8px;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .missing-user-item:hover {
+            background: rgba(0, 170, 255, 0.2);
+        }
+        .missing-user-dot.connected{
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #0af;
+            box-shadow: 0 0 6px #0af;
+        }
+        .missing-user-dot.disconnected {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f44;
+            box-shadow: 0 0 10px #f44;
+        }
+        .missing-user-name { flex: 1; font-weight: 500; }
 
         /* Users list */
         .users-panel { flex: 0 0 auto; max-height: 250px; }
@@ -186,6 +224,14 @@
     <div class="panel users-panel">
         <h3>Utilisateurs connectes <span class="user-count" id="user-count">0</span></h3>
         <div id="users-list"></div>
+    </div>
+
+    <div class="panel all-system-is-operational">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span class="status-dot disconnected" id="system-status-dot"></span>
+            <h4 style="margin:0;">Clients manquants<span class="user-count" id="missing-user-count">0</span></h4>
+        </div>
+        <div id="missing-users-list"></div>
     </div>
 
     <div class="panel logs-panel">
@@ -399,6 +445,29 @@
         if (logsDiv.children.length > 50) logsDiv.removeChild(logsDiv.lastChild);
     }
 
+    function verifyAllSystemIsOperational() {
+        const components = ['ESP32_', 'LFM-'];
+        const clients = nodes.filter(n => n.type === 'client');
+        const isOperational = components.every(prefix => clients.some(c => c.id.startsWith(prefix)));
+        const systemStatusDot = document.getElementById('system-status-dot');
+        const missingUsersList = document.getElementById('missing-users-list');
+        document.getElementById('missing-user-count').textContent = `${components.filter(prefix => !clients.some(c => c.id.startsWith(prefix))).length}`;
+
+        if (isOperational) {
+            systemStatusDot.classList.remove('disconnected');
+        } else {
+            systemStatusDot.classList.add('disconnected');
+        }
+
+        missingUsersList.innerHTML = components.map(prefix => {
+            const connected = clients.some(c => c.id.startsWith(prefix));
+            return `<div class="missing-user-item">
+                <div class="missing-user-dot ${connected ? 'connected' : 'disconnected'}"></div>
+                <span class="missing-user-name">${prefix.slice(0, prefix.length - 1)}</span>
+            </div>`;
+        }).join('');
+    }
+
     // SSE
     const eventSource = new EventSource('/api/stream');
     const statusDot = document.getElementById('status-dot');
@@ -421,13 +490,16 @@
         else if (event.type === 'client_connected') {
             addLog('connect', `<span class="log-time">${time}</span> <span style="color:#0f0">+</span> ${event.data.username}`);
             addClient(event.data.username, event.data);
+            verifyAllSystemIsOperational()
         }
         else if (event.type === 'client_disconnected') {
             addLog('disconnect', `<span class="log-time">${time}</span> <span style="color:#f44">−</span> ${event.data.username}`);
             removeClient(event.data.username);
+            verifyAllSystemIsOperational()
         }
         else if (event.type === 'client_list') {
             event.data.forEach(c => addClient(c.username, c));
+            verifyAllSystemIsOperational();
         }
     };
 
@@ -438,6 +510,7 @@
 
     fetch('/api/clients').then(r => r.json()).then(data => {
         data.forEach(c => addClient(c.username, c));
+        verifyAllSystemIsOperational();
     });
 
     update();
